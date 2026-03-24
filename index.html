@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <title>Zombie Shooter</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/main.css" />
+</head>
+<body>
+  <div id="app">
+    <!-- Loading / title -->
+    <section id="screen-loading" class="screen screen-active" aria-label="Loading">
+      <div class="pixel-bg" id="pixel-bg-loading"></div>
+      <div class="loading-fog"></div>
+      <div class="loading-content">
+        <h1 class="pixel-title">ZOMBIE<br />SHOOTER</h1>
+        <p class="pixel-sub">LOADING...</p>
+        <button type="button" id="btn-start" class="btn-pixel btn-start">START</button>
+      </div>
+    </section>
+
+    <!-- Black transition -->
+    <div id="overlay-black" class="overlay-black" hidden></div>
+
+    <!-- Inter-level loading -->
+    <section id="screen-level-loading" class="screen" hidden aria-label="Preparing">
+      <div class="pixel-bg pixel-bg-dim"></div>
+      <div class="loading-content">
+        <p class="pixel-sub">PREPARING LEVELS...</p>
+        <div class="pixel-bar-wrap"><div class="pixel-bar" id="level-load-bar"></div></div>
+      </div>
+    </section>
+
+    <!-- Level select -->
+    <section id="screen-level-select" class="screen screen-forest screen-photo-bg" hidden aria-label="Level select">
+      <div class="forest-bg"></div>
+      <div class="forest-fog"></div>
+      <button type="button" id="btn-level-back" class="btn-pixel btn-back-corner">BACK</button>
+      <div class="level-select-inner">
+        <h2 class="pixel-heading">SELECT LEVEL</h2>
+        <p class="level-page-hint" id="level-page-hint">Levels 1–5</p>
+        <div class="level-carousel">
+          <button type="button" id="btn-level-page-prev" class="btn-level-nav" aria-label="Previous level page">◀</button>
+          <div class="level-line-wrap">
+            <div class="level-line" id="level-buttons"></div>
+          </div>
+          <button type="button" id="btn-level-page-next" class="btn-level-nav" aria-label="Next level page">▶</button>
+        </div>
+        <p class="level-page-keys">← → arrow keys</p>
+      </div>
+    </section>
+
+    <!-- Character select -->
+    <section id="screen-character" class="screen screen-forest screen-photo-bg" hidden aria-label="Character select">
+      <div class="forest-bg"></div>
+      <div class="forest-fog"></div>
+      <header class="points-bar">
+        <span>POINTS: <strong id="points-display">0</strong></span>
+      </header>
+      <button type="button" id="btn-char-back" class="btn-pixel btn-back-corner">BACK</button>
+      <div class="character-inner">
+        <h2 class="pixel-heading">PICK FIGHTER</h2>
+        <div class="character-carousel" id="character-carousel">
+          <button type="button" id="btn-char-prev" class="btn-char-nav" aria-label="Previous fighter">◀</button>
+          <div id="character-slot" class="character-slot"></div>
+          <button type="button" id="btn-char-next" class="btn-char-nav" aria-label="Next fighter">▶</button>
+        </div>
+        <p class="char-carousel-hint" id="char-carousel-counter" aria-live="polite">1 / 10</p>
+        <p class="char-carousel-keys">← → arrow keys</p>
+        <button type="button" id="btn-start-battle" class="btn-pixel btn-start battle-btn">START BATTLE</button>
+      </div>
+    </section>
+
+    <!-- Game -->
+    <section id="screen-game" class="screen screen-game" hidden aria-label="Game">
+      <canvas id="game-canvas"></canvas>
+      <div id="game-hud">
+        <span id="hud-wall">WALL: <strong id="wall-hp">100</strong></span>
+        <span id="hud-score">SCORE: <strong id="hud-kills">0</strong></span>
+        <span id="hud-level">LV: <strong id="hud-level-num">1</strong></span>
+      </div>
+      <div id="boss-banner" class="boss-banner" hidden>
+        <span class="boss-banner-text">BOSS FIGHT</span>
+      </div>
+      <div id="game-over-overlay" class="game-over-overlay" hidden>
+        <p class="game-over-text">GAME OVER</p>
+      </div>
+      <div class="game-controls">
+        <button type="button" id="btn-left" class="btn-game" aria-label="Move left">◀</button>
+        <button type="button" id="btn-shoot" class="btn-game btn-shoot" aria-label="Shoot">FIRE</button>
+        <button type="button" id="btn-right" class="btn-game" aria-label="Move right">▶</button>
+      </div>
+    </section>
+  </div>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
