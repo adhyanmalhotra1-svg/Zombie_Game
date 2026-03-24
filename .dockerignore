@@ -1,0 +1,10 @@
+.git
+.gitignore
+.dockerignore
+*.ps1
+.vscode
+.idea
+*.log
+node_modules
+Thumbs.db
+Desktop.ini
