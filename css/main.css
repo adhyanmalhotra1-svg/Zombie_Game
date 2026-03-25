@@ -135,7 +135,21 @@ button,
     -1px -1px 0 #330022;
   color: #e8e8ff;
   letter-spacing: 0.05em;
-  margin-bottom: 1.5rem;
+  margin-bottom: 0.45rem;
+}
+
+.pixel-rights {
+  font-size: 0.38rem;
+  line-height: 1.5;
+  color: #6a7580;
+  letter-spacing: 0.06em;
+  margin: 0 0 1.25rem;
+  text-transform: lowercase;
+}
+
+.pixel-rights-copy {
+  margin-right: 0.12em;
+  opacity: 0.95;
 }
 
 .pixel-sub {
