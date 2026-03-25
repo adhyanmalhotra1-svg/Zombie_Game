@@ -2,11 +2,11 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
   <title>Zombie Shooter</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Rubik+Glitch&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="css/main.css" />
 </head>
 <body>
@@ -19,6 +19,7 @@
         <h1 class="pixel-title">ZOMBIE<br />SHOOTER</h1>
         <p class="pixel-sub">LOADING...</p>
         <button type="button" id="btn-start" class="btn-pixel btn-start">START</button>
+        <p class="credit-glitch">made by Adhyan Malhotra</p>
       </div>
     </section>
 
@@ -38,6 +39,7 @@
     <section id="screen-level-select" class="screen screen-forest screen-photo-bg" hidden aria-label="Level select">
       <div class="forest-bg"></div>
       <div class="forest-fog"></div>
+      <button type="button" id="btn-shop-open" class="btn-pixel btn-shop-corner">SHOP</button>
       <button type="button" id="btn-level-back" class="btn-pixel btn-back-corner">BACK</button>
       <div class="level-select-inner">
         <h2 class="pixel-heading">SELECT LEVEL</h2>
@@ -50,6 +52,31 @@
           <button type="button" id="btn-level-page-next" class="btn-level-nav" aria-label="Next level page">▶</button>
         </div>
         <p class="level-page-keys">← → arrow keys</p>
+      </div>
+    </section>
+
+    <!-- Bomb shop -->
+    <section id="screen-shop" class="screen screen-forest screen-photo-bg" hidden aria-label="Bomb shop">
+      <div class="forest-bg"></div>
+      <div class="forest-fog"></div>
+      <header class="points-bar">
+        <span>POINTS: <strong id="shop-points-display">0</strong></span>
+      </header>
+      <button type="button" id="btn-shop-back" class="btn-pixel btn-back-corner">BACK</button>
+      <div class="shop-inner">
+        <h2 class="pixel-heading">BOMB SHOP</h2>
+        <p class="shop-sub">Browse upgrades, buy with points, then EQUIP.</p>
+        <div class="shop-bomb-carousel">
+          <button type="button" id="btn-shop-prev" class="btn-char-nav" aria-label="Previous bomb upgrade">◀</button>
+          <div id="shop-bomb-slot" class="shop-bomb-slot"></div>
+          <button type="button" id="btn-shop-next" class="btn-char-nav" aria-label="Next bomb upgrade">▶</button>
+        </div>
+        <p id="shop-bomb-counter" class="char-carousel-hint" aria-live="polite">1 / 5</p>
+        <p class="char-carousel-keys">← → arrow keys</p>
+        <div class="shop-actions">
+          <button type="button" id="btn-shop-buy" class="btn-pixel btn-start">BUY</button>
+          <button type="button" id="btn-shop-equip" class="btn-pixel btn-start">EQUIP</button>
+        </div>
       </div>
     </section>
 
@@ -88,10 +115,26 @@
       <div id="game-over-overlay" class="game-over-overlay" hidden>
         <p class="game-over-text">GAME OVER</p>
       </div>
-      <div class="game-controls">
-        <button type="button" id="btn-left" class="btn-game" aria-label="Move left">◀</button>
-        <button type="button" id="btn-shoot" class="btn-game btn-shoot" aria-label="Shoot">FIRE</button>
-        <button type="button" id="btn-right" class="btn-game" aria-label="Move right">▶</button>
+      <div id="victory-overlay" class="victory-overlay" hidden aria-live="polite">
+        <p class="victory-text">LEVEL COMPLETED</p>
+      </div>
+      <div class="game-controls-wrap">
+        <div class="bomb-row">
+          <button type="button" id="btn-bomb" class="btn-bomb" aria-label="Pick up bomb">
+            <span class="bomb-art" aria-hidden="true">
+              <span class="bomb-fuse"></span>
+              <span class="bomb-body"></span>
+              <span class="bomb-band"></span>
+            </span>
+            <span class="bomb-text">BOMB</span>
+            <span id="bomb-timer" class="bomb-timer" hidden>1:00</span>
+          </button>
+        </div>
+        <div class="game-controls">
+          <button type="button" id="btn-left" class="btn-game" aria-label="Move left">◀</button>
+          <button type="button" id="btn-shoot" class="btn-game btn-shoot" aria-label="Shoot">FIRE</button>
+          <button type="button" id="btn-right" class="btn-game" aria-label="Move right">▶</button>
+        </div>
       </div>
     </section>
   </div>

@@ -6,9 +6,17 @@ import { CHARACTERS } from "./characters.js";
 import {
   appState,
   getPoints,
+  addPoints,
   isUnlocked,
   unlockCharacter,
+  unlockBomb,
+  isBombUnlocked,
+  getSelectedBombId,
+  setSelectedBombId,
+  isLevelUnlocked,
 } from "./state.js";
+import { BOMB_UPGRADES } from "./bomb-upgrades.js";
+import { fillBombArtElement, BOMB_PNG_PATHS } from "./bomb-assets.js";
 import {
   getSoldierCanvas,
   drawSoldierSprite,
@@ -17,6 +25,89 @@ import {
 
 let levelSelectPage = 0;
 let levelPickCallback = null;
+
+/** Level number (2–10) that should play chain-break when first shown after a win. */
+let pendingUnlockAnimLevel = null;
+
+const BOSS_SPOTLIGHT_PREFIX = "zs_boss_spotlight_";
+
+function markBossSpotlight(levelNum) {
+  if (levelNum !== 5 && levelNum !== 10) return;
+  try {
+    sessionStorage.setItem(`${BOSS_SPOTLIGHT_PREFIX}${levelNum}`, "1");
+  } catch (_) {
+    /* ignore */
+  }
+}
+
+function hasBossSpotlight(levelNum) {
+  if (levelNum !== 5 && levelNum !== 10) return false;
+  try {
+    return sessionStorage.getItem(`${BOSS_SPOTLIGHT_PREFIX}${levelNum}`) === "1";
+  } catch (_) {
+    return false;
+  }
+}
+
+export function setPendingUnlockAnimation(levelNum) {
+  pendingUnlockAnimLevel =
+    levelNum == null || levelNum < 2 || levelNum > 10 ? null : levelNum;
+}
+
+export function ensureLevelPageForUnlock(levelNum) {
+  if (levelNum < 1 || levelNum > 10) return;
+  levelSelectPage = levelNum <= 5 ? 0 : 1;
+}
+
+function buildChainSide(sideClass) {
+  const side = document.createElement("div");
+  side.className = `level-chain-side ${sideClass}`;
+  const tilt = document.createElement("div");
+  tilt.className = "level-chain-tilt";
+  for (let i = 0; i < 5; i++) {
+    const link = document.createElement("span");
+    link.className = "level-link" + (i % 2 ? " level-link--alt" : "");
+    tilt.appendChild(link);
+  }
+  side.appendChild(tilt);
+  return side;
+}
+
+function createLevelChainDecor() {
+  const wrap = document.createElement("div");
+  wrap.className = "level-chain-wrap";
+  wrap.setAttribute("aria-hidden", "true");
+
+  wrap.appendChild(buildChainSide("level-chain-side--left"));
+  wrap.appendChild(buildChainSide("level-chain-side--right"));
+
+  const lock = document.createElement("div");
+  lock.className = "level-lock-cluster";
+  const shackle = document.createElement("span");
+  shackle.className = "level-lock-shackle";
+  const shackleHole = document.createElement("span");
+  shackleHole.className = "level-lock-shackle-hole";
+  shackle.appendChild(shackleHole);
+  const body = document.createElement("span");
+  body.className = "level-lock-body";
+  const face = document.createElement("span");
+  face.className = "level-lock-face";
+  const keyhole = document.createElement("span");
+  keyhole.className = "level-lock-keyhole";
+  const rivetL = document.createElement("span");
+  rivetL.className = "level-lock-rivet level-lock-rivet--l";
+  const rivetR = document.createElement("span");
+  rivetR.className = "level-lock-rivet level-lock-rivet--r";
+  body.appendChild(face);
+  body.appendChild(keyhole);
+  body.appendChild(rivetL);
+  body.appendChild(rivetR);
+  lock.appendChild(shackle);
+  lock.appendChild(body);
+
+  wrap.insertBefore(lock, wrap.firstChild.nextSibling);
+  return wrap;
+}
 
 export function showScreen(id) {
   document.querySelectorAll(".screen").forEach((el) => {
@@ -27,6 +118,9 @@ export function showScreen(id) {
   if (target) {
     target.hidden = false;
     target.classList.add("screen-active");
+  }
+  if (id === "level-select") {
+    renderLevelSelect();
   }
 }
 
@@ -89,8 +183,12 @@ function renderLevelSelect() {
   for (let i = 0; i < 5; i++) {
     const levelNum = start + i + 1;
     const isBoss = levelNum === 5 || levelNum === 10;
+    const unlocked = isLevelUnlocked(levelNum);
     const slot = document.createElement("div");
-    slot.className = "level-slot" + (isBoss ? " level-slot-boss" : "");
+    slot.className =
+      "level-slot" +
+      (isBoss ? " level-slot-boss" : "") +
+      (!unlocked ? " level-slot--locked" : "");
     if (isBoss) {
       const skull = document.createElement("span");
       skull.className = "level-boss-skull";
@@ -104,10 +202,60 @@ function renderLevelSelect() {
     }
     const btn = document.createElement("button");
     btn.type = "button";
-    btn.className = "level-btn level-btn-line" + (isBoss ? " level-btn-boss" : "");
+    btn.className =
+      "level-btn level-btn-line" +
+      (isBoss ? " level-btn-boss" : "") +
+      (!unlocked ? " level-btn--locked" : "");
     btn.textContent = String(levelNum);
-    btn.addEventListener("click", () => levelPickCallback?.(levelNum));
+    btn.disabled = !unlocked;
+    btn.setAttribute("aria-disabled", unlocked ? "false" : "true");
+    if (!unlocked) {
+      btn.title = "Complete the previous level to unlock";
+    }
+    btn.addEventListener("click", () => {
+      if (!isLevelUnlocked(levelNum)) return;
+      levelPickCallback?.(levelNum);
+    });
     slot.appendChild(btn);
+
+    if (
+      isBoss &&
+      unlocked &&
+      hasBossSpotlight(levelNum) &&
+      !(pendingUnlockAnimLevel != null && pendingUnlockAnimLevel === levelNum)
+    ) {
+      slot.classList.add("level-slot--boss-revealed");
+      btn.classList.add("level-btn--boss-revealed");
+    }
+
+    const playUnlock =
+      unlocked &&
+      pendingUnlockAnimLevel != null &&
+      pendingUnlockAnimLevel === levelNum;
+
+    if (!unlocked) {
+      slot.appendChild(createLevelChainDecor());
+    } else if (playUnlock) {
+      slot.classList.add("level-slot--unlocking");
+      const decor = createLevelChainDecor();
+      slot.appendChild(decor);
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          decor.classList.add("level-chain-wrap--break");
+        });
+      });
+      setTimeout(() => {
+        decor.remove();
+        slot.classList.remove("level-slot--unlocking");
+        pendingUnlockAnimLevel = null;
+        if (isBoss) {
+          markBossSpotlight(levelNum);
+          slot.classList.add("level-slot--boss-revealed");
+          btn.classList.add("level-btn--boss-revealed");
+        }
+      }, 1900);
+    }
+
     grid.appendChild(slot);
   }
   if (hint) {
@@ -150,8 +298,11 @@ function makeCharPreview(card, ch, size = DEFAULT_PREVIEW) {
 }
 
 export function refreshPointsDisplay() {
+  const pts = String(getPoints());
   const el = document.getElementById("points-display");
-  if (el) el.textContent = String(getPoints());
+  if (el) el.textContent = pts;
+  const shopPts = document.getElementById("shop-points-display");
+  if (shopPts) shopPts.textContent = pts;
 }
 
 let carouselIndex = 0;
@@ -229,4 +380,116 @@ export function buildCharacterGrid(onSelect) {
 /** Re-draw current fighter card (e.g. mech art finished loading). Does not change carousel index. */
 export function rerenderCharacterCarousel() {
   renderCharacterCarousel(undefined);
+}
+
+/* --- Bomb shop (carousel like character select) --- */
+
+function createShopBombPreviewEl(bombId) {
+  const wrap = document.createElement("div");
+  wrap.className = "shop-bomb-preview-wrap";
+  if (BOMB_PNG_PATHS[bombId]) {
+    wrap.classList.add("shop-bomb-preview--asset");
+  }
+  const art = document.createElement("span");
+  art.setAttribute("aria-hidden", "true");
+  fillBombArtElement(art, bombId, {
+    extraContainerClasses: "shop-bomb-art",
+    anniClass: "shop-bomb-art--anni",
+    imgClass: "bomb-art-img shop-bomb-sprite-img",
+  });
+  wrap.appendChild(art);
+  return wrap;
+}
+
+let shopBombIndex = 0;
+
+export function buildShopBomb() {
+  const sel = getSelectedBombId();
+  const i = BOMB_UPGRADES.findIndex((b) => b.id === sel);
+  shopBombIndex = i >= 0 ? i : 0;
+  renderShopBomb();
+}
+
+export function stepShopBomb(delta) {
+  shopBombIndex =
+    (shopBombIndex + delta + BOMB_UPGRADES.length) % BOMB_UPGRADES.length;
+  renderShopBomb();
+}
+
+export function renderShopBomb() {
+  const slot = document.getElementById("shop-bomb-slot");
+  const counter = document.getElementById("shop-bomb-counter");
+  const ptsEl = document.getElementById("shop-points-display");
+  const buyBtn = document.getElementById("btn-shop-buy");
+  const equipBtn = document.getElementById("btn-shop-equip");
+  if (!slot) return;
+
+  const b = BOMB_UPGRADES[shopBombIndex];
+  const pts = getPoints();
+  const unlocked = isBombUnlocked(b.id);
+  const selected = getSelectedBombId() === b.id;
+
+  if (ptsEl) ptsEl.textContent = String(pts);
+
+  slot.innerHTML = "";
+  const card = document.createElement("div");
+  card.className = "shop-bomb-card";
+  card.appendChild(createShopBombPreviewEl(b.id));
+  const title = document.createElement("div");
+  title.className = "shop-bomb-name";
+  title.textContent = b.name;
+  const desc = document.createElement("p");
+  desc.className = "shop-bomb-desc";
+  desc.textContent = b.desc;
+  const cost = document.createElement("div");
+  cost.className = "shop-bomb-cost";
+  if (b.cost === 0) {
+    cost.textContent = "FREE — always available";
+  } else if (unlocked) {
+    cost.textContent = `OWNED — you spent ${b.cost} pts`;
+  } else {
+    cost.textContent = `LOCKED — ${b.cost} pts to unlock`;
+  }
+
+  card.appendChild(title);
+  card.appendChild(desc);
+  card.appendChild(cost);
+  slot.appendChild(card);
+
+  if (counter) {
+    counter.textContent = `${shopBombIndex + 1} / ${BOMB_UPGRADES.length}`;
+  }
+
+  if (buyBtn) {
+    const canBuy = !unlocked && b.cost > 0 && pts >= b.cost;
+    buyBtn.hidden = unlocked || b.cost === 0;
+    buyBtn.disabled = !canBuy;
+    buyBtn.textContent = unlocked ? "OWNED" : `BUY (${b.cost} pts)`;
+  }
+  if (equipBtn) {
+    equipBtn.hidden = !unlocked;
+    equipBtn.disabled = selected;
+    equipBtn.textContent = selected ? "EQUIPPED" : "EQUIP";
+  }
+}
+
+export function tryBuyCurrentBomb() {
+  const b = BOMB_UPGRADES[shopBombIndex];
+  if (isBombUnlocked(b.id) || b.cost === 0) return false;
+  const pts = getPoints();
+  if (pts < b.cost) return false;
+  addPoints(-b.cost);
+  unlockBomb(b.id);
+  setSelectedBombId(b.id);
+  refreshPointsDisplay();
+  renderShopBomb();
+  return true;
+}
+
+export function tryEquipCurrentBomb() {
+  const b = BOMB_UPGRADES[shopBombIndex];
+  if (!isBombUnlocked(b.id)) return false;
+  setSelectedBombId(b.id);
+  renderShopBomb();
+  return true;
 }

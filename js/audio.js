@@ -41,6 +41,23 @@ export function playUiClick() {
   setTimeout(() => beep(1320, 0.03, "square", 0.04), 20);
 }
 
+/** Whoosh when the bomb leaves the throw arc. */
+export function playBombThrowLaunch() {
+  resumeAudio();
+  beep(120, 0.06, "square", 0.06);
+  setTimeout(() => beep(200, 0.08, "sawtooth", 0.07), 30);
+  setTimeout(() => beep(90, 0.12, "triangle", 0.06), 70);
+}
+
+/** Heavy impact for bomb clearing the field. */
+export function playBombExplosion() {
+  resumeAudio();
+  beep(90, 0.22, "sawtooth", 0.14);
+  setTimeout(() => beep(55, 0.18, "square", 0.1), 40);
+  setTimeout(() => beep(140, 0.1, "square", 0.08), 120);
+  setTimeout(() => beep(70, 0.15, "sawtooth", 0.1), 200);
+}
+
 export function playShoot() {
   const c = getCtx();
   if (!c) return;

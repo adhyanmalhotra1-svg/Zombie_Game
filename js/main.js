@@ -2,7 +2,8 @@
  * Entry: audio, navigation, game binding.
  */
 
-import { appState } from "./state.js";
+import { appState, getSelectedBombId, recordLevelCompleted } from "./state.js";
+import { fillBombArtElement } from "./bomb-assets.js";
 import {
   showScreen,
   initLoadingPixelBg,
@@ -12,6 +13,12 @@ import {
   stepCharacterCarousel,
   rerenderCharacterCarousel,
   refreshPointsDisplay,
+  buildShopBomb,
+  stepShopBomb,
+  tryBuyCurrentBomb,
+  tryEquipCurrentBomb,
+  setPendingUnlockAnimation,
+  ensureLevelPageForUnlock,
 } from "./ui-screens.js";
 import {
   resumeAudio,
@@ -93,6 +100,40 @@ function init() {
     showScreen("loading");
   });
 
+  document.getElementById("btn-shop-open")?.addEventListener("click", () => {
+    ensureAudio();
+    uiSound();
+    refreshPointsDisplay();
+    buildShopBomb();
+    showScreen("shop");
+  });
+
+  document.getElementById("btn-shop-back")?.addEventListener("click", () => {
+    ensureAudio();
+    uiSound();
+    showScreen("level-select");
+  });
+
+  document.getElementById("btn-shop-prev")?.addEventListener("click", () => {
+    ensureAudio();
+    uiSound();
+    stepShopBomb(-1);
+  });
+  document.getElementById("btn-shop-next")?.addEventListener("click", () => {
+    ensureAudio();
+    uiSound();
+    stepShopBomb(1);
+  });
+
+  document.getElementById("btn-shop-buy")?.addEventListener("click", () => {
+    ensureAudio();
+    if (tryBuyCurrentBomb()) playUiClick();
+  });
+  document.getElementById("btn-shop-equip")?.addEventListener("click", () => {
+    ensureAudio();
+    if (tryEquipCurrentBomb()) playUiClick();
+  });
+
   document.getElementById("btn-level-page-prev")?.addEventListener("click", () => {
     ensureAudio();
     uiSound();
@@ -121,18 +162,6 @@ function init() {
     stepCharacterCarousel(1);
   });
 
-  document.getElementById("btn-start-battle")?.addEventListener("click", () => {
-    ensureAudio();
-    uiSound();
-    stopLoadingMusic();
-    showScreen("game");
-    gameApi?.resize();
-    gameApi?.start({
-      level: appState.selectedLevel,
-      characterId: appState.selectedCharacterId,
-    });
-  });
-
   const canvas = document.getElementById("game-canvas");
   gameApi = createGame({
     canvas,
@@ -148,11 +177,31 @@ function init() {
       startLoadingMusic();
       refreshPointsDisplay();
     },
-    onVictory: () => {
+    onVictory: (payload) => {
       stopLoadingMusic();
-      showScreen("level-select");
-      startLoadingMusic();
-      refreshPointsDisplay();
+      const wonLevel = payload?.level ?? appState.selectedLevel;
+      const prevMax = getMaxLevelCleared();
+      recordLevelCompleted(wonLevel);
+      const newMax = getMaxLevelCleared();
+      if (newMax > prevMax) {
+        const nextOpen = newMax + 1;
+        if (nextOpen <= 10) {
+          setPendingUnlockAnimation(nextOpen);
+          ensureLevelPageForUnlock(nextOpen);
+        } else {
+          setPendingUnlockAnimation(null);
+        }
+      } else {
+        setPendingUnlockAnimation(null);
+      }
+      const vo = document.getElementById("victory-overlay");
+      if (vo) vo.hidden = false;
+      setTimeout(() => {
+        if (vo) vo.hidden = true;
+        showScreen("level-select");
+        startLoadingMusic();
+        refreshPointsDisplay();
+      }, 2200);
     },
   });
 
@@ -163,13 +212,20 @@ function init() {
   const shoot = document.getElementById("btn-shoot");
 
   const bindHold = (el, down, up) => {
-    el?.addEventListener("pointerdown", (e) => {
+    if (!el) return;
+    const safeUp = () => up();
+    el.addEventListener("pointerdown", (e) => {
       e.preventDefault();
+      try {
+        el.setPointerCapture(e.pointerId);
+      } catch (_) {
+        /* ignore */
+      }
       down();
     });
-    el?.addEventListener("pointerup", up);
-    el?.addEventListener("pointerleave", up);
-    el?.addEventListener("pointercancel", up);
+    el.addEventListener("pointerup", safeUp);
+    el.addEventListener("pointercancel", safeUp);
+    el.addEventListener("lostpointercapture", safeUp);
   };
 
   bindHold(
@@ -182,9 +238,102 @@ function init() {
     () => gameApi?.setRight(true),
     () => gameApi?.setRight(false)
   );
-  shoot?.addEventListener("pointerdown", (e) => {
-    e.preventDefault();
-    gameApi?.fire();
+  shoot?.addEventListener(
+    "pointerdown",
+    (e) => {
+      e.preventDefault();
+      gameApi?.fire();
+      refreshBombUI();
+    },
+    { passive: false }
+  );
+
+  function syncGameBombHudVisual() {
+    const bombBtn = document.getElementById("btn-bomb");
+    if (!bombBtn) return;
+    const id = getSelectedBombId();
+    if (bombBtn.dataset.bombHudId === id) return;
+    bombBtn.dataset.bombHudId = id;
+    const art = bombBtn.querySelector(".bomb-art");
+    if (art) fillBombArtElement(art, id);
+  }
+
+  function refreshBombUI() {
+    const bombBtn = document.getElementById("btn-bomb");
+    const timerEl = document.getElementById("bomb-timer");
+    const shootBtn = document.getElementById("btn-shoot");
+    if (!bombBtn || !shootBtn) return;
+    syncGameBombHudVisual();
+    if (!gameApi?.getBombState) return;
+    const st = gameApi.getBombState();
+    const cd = st.cooldownRemainingMs;
+
+    if (cd > 0) {
+      bombBtn.classList.add("btn-bomb--cooldown");
+      bombBtn.classList.remove("btn-bomb--armed");
+      bombBtn.disabled = true;
+      if (timerEl) {
+        timerEl.hidden = false;
+        const sec = Math.ceil(cd / 1000);
+        const m = Math.floor(sec / 60);
+        const s = sec % 60;
+        timerEl.textContent = `${m}:${String(s).padStart(2, "0")}`;
+      }
+    } else {
+      bombBtn.classList.remove("btn-bomb--cooldown");
+      if (timerEl) timerEl.hidden = true;
+      if (st.carryingBomb) {
+        bombBtn.disabled = true;
+        bombBtn.classList.add("btn-bomb--armed");
+      } else {
+        bombBtn.disabled = false;
+        bombBtn.classList.remove("btn-bomb--armed");
+      }
+    }
+
+    if (st.carryingBomb) {
+      shootBtn.textContent = "THROW";
+      shootBtn.setAttribute("aria-label", "Throw bomb");
+      shootBtn.classList.add("btn-throw");
+    } else {
+      shootBtn.textContent = "FIRE";
+      shootBtn.setAttribute("aria-label", "Shoot");
+      shootBtn.classList.remove("btn-throw");
+    }
+  }
+
+  document.getElementById("btn-bomb")?.addEventListener(
+    "pointerdown",
+    (e) => {
+      e.preventDefault();
+      const sg = document.getElementById("screen-game");
+      if (!sg || sg.hidden) return;
+      if (gameApi?.pickBomb?.()) {
+        playUiClick();
+        refreshBombUI();
+      }
+    },
+    { passive: false }
+  );
+
+  setInterval(() => {
+    const g = document.getElementById("screen-game");
+    if (g && !g.hidden && gameApi) refreshBombUI();
+  }, 300);
+
+  document.getElementById("btn-start-battle")?.addEventListener("click", () => {
+    ensureAudio();
+    uiSound();
+    stopLoadingMusic();
+    showScreen("game");
+    requestAnimationFrame(() => {
+      gameApi?.start({
+        level: appState.selectedLevel,
+        characterId: appState.selectedCharacterId,
+      });
+      refreshBombUI();
+      requestAnimationFrame(() => gameApi?.resize());
+    });
   });
 
   function isGameScreenActive() {
@@ -202,7 +351,28 @@ function init() {
     return el && !el.hidden;
   }
 
+  function isShopScreenActive() {
+    const el = document.getElementById("screen-shop");
+    return el && !el.hidden;
+  }
+
   window.addEventListener("keydown", (e) => {
+    if (isShopScreenActive()) {
+      if (e.code === "ArrowLeft") {
+        e.preventDefault();
+        ensureAudio();
+        uiSound();
+        stepShopBomb(-1);
+        return;
+      }
+      if (e.code === "ArrowRight") {
+        e.preventDefault();
+        ensureAudio();
+        uiSound();
+        stepShopBomb(1);
+        return;
+      }
+    }
     if (isCharacterScreenActive()) {
       if (e.code === "ArrowLeft") {
         e.preventDefault();
@@ -245,6 +415,7 @@ function init() {
     } else if (e.code === "Space") {
       e.preventDefault();
       gameApi?.fire();
+      refreshBombUI();
     }
   });
 
